@@ -1,0 +1,256 @@
+---
+title: "QLSC R BootCamp"
+author: "Sara Zapata-Marin"
+date: "17 de agosto de 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Project: World Cup 2018
+![](https://www.veteranstoday.com/wp-content/uploads/2018/06/main.jpg)
+
+
+# Table of contents
+
+1. [Introduction](#introduction)
+
+2. [Scores](#scores)
+
+3. [Project description](#project-description)
+
+4. [Basic Visualization in R](#basic-visualization-in-r)
+
+5. [ggplot](#ggplot)
+
+6. [Useful resources](#useful-resources)
+
+## Introduction
+
+This file contains an example of the project that you will develop along with some basic instructions that you need to learn to get started.
+
+First, call the libraries we will need and set up the working directory. That is useful when you share files with other people.
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+workdir <- "/home/sara/Documentos/BootCamp"
+
+# In a normal script we would run: setwd(workdir) but in Markdown this would be only valid for this chunk so we use:
+
+knitr::opts_knit$set(root.dir = workdir)
+
+```
+
+We start by reading the csv (comma separated values) file with the data from the most recent World Cup.
+
+```{r worldcup}
+matches_2018 <- read.csv("./WorldCup2018/FIFA 2018 Statistics.csv")
+```
+
+For more options when using `read.csv` type `?read.csv` in your console.
+
+The columns of this file contain the following information:
+```{r names}
+names(matches_2018)
+```
+you can read a description of each feature at https://www.kaggle.com/mathan/fifa-2018-match-statistics
+
+Now, we want to see what our data frame looks like so, we use the `head` function in R which gives you the first 6 rows of a data frame, but you can also choose the number of rows displayed by specifying it as a second argument `head(df,12)`.
+```{r head}
+head(matches_2018)
+```
+
+For now we just need the *Team*, *Opponent* and *Goal.Scored* columns so, we get rid of the other ones.
+```{r smaller df}
+matches_2018 <- matches_2018[,2:4]
+```
+
+
+Another option is to do it just after the `read.csv` function as:  `matches_2018 <- read.csv(paste0(workdir,"FIFA 2018 Statistics.csv"))[,2:4]`
+
+## Scores
+
+When we look at the first rows of `matches_2018` we see that the matches are split into two rows, one for the *Team* and one for the *Opponent* and we need to make a new data frame where each row is a different match.
+
+We start by reading every other row so we get the name of the teams in each match and then we save it in a new data frame
+
+```{r separate matches}
+scores <- matches_2018[seq(1, nrow(matches_2018), 2), 1:2]
+row.names(scores) <- c(1:nrow(scores))
+```
+
+Now we write the score as `Team_goals` and `Opponent_goals`
+
+```{r score}
+scores$Team_goals <- matches_2018[seq(1, nrow(matches_2018), 2), 3]
+scores$Opponent_goals <- matches_2018[seq(2, nrow(matches_2018), 2), 3]
+
+```
+
+After we have the scores for each match, we need to establish who the winner is, you have to be careful here because sometimes there is no winner (it could be a Tie).
+
+```{r real winner}
+for (i in 1:nrow(scores)){
+  if(scores$Team_goals[i] > scores$Opponent_goals[i]){
+      scores$A_Winner[i] <- as.character(scores$Team[i])
+     } 
+  else if(scores$Team_goals[i] < scores$Opponent_goals[i])
+    {
+       scores$A_Winner[i] <- as.character(scores$Opponent[i])
+  }
+  else{
+    scores$A_Winner[i] <- "Tie"
+  }
+  
+}
+
+head(scores)
+```
+
+## Project description
+
+For your project you are going to take the historical data from the other World Cups and you will predict who would have won each match in the last World Cup according to the historical data.
+
+If you don't know how the World Cup works here is a little guide for you ;) 
+http://www.sportingnews.com/us/soccer/news/world-cup-2018-beginners-guide-sites-favorites-players-to-watch/cp5tx7nlhrdz1e1uuulyod0dx
+
+We made a simple example for the predictor where we randomly chose one of the two teams as the winner, we didn't consider the possibility of a tie.
+
+The function `sample` takes the value of the Team and Opponent columns and chooses one of them at random (for more information about this function, type `?sample` in your console), and the function `apply` applies the function sample to each row (you may also want to check the `lapply` function)
+
+
+```{r predicted winner}
+scores$P_Winner <- apply(scores[,1:2],1,function(x) sample(x,1))
+```
+
+If we take a look at our data frame we can see that we have the actual winner (or real) and the predicted winner according to our random sampler.
+```{r head scores}
+head(scores)
+```
+
+But we want to test how good our algorithm is so, we also make a new column called *test* which would be 1 if our model correctly predicts the winner for that match and 0 otherwise.
+```{r test predictor}
+scores$Test <- 0
+scores$Test[scores$A_Winner == scores$P_Winner] <- 1
+```
+
+So our model predicted `r sum(scores$Test)/nrow(scores)*100`% of the last World Cup.
+
+Can you do better than that?
+
+## Basic Visualization in R
+
+There are some basic functions in R that can help you do some graphics such as `plot`,`hist`, `boxplot`, `barplot`, etc.
+
+The command `plot` is the most basic one, it takes the arguments *x*, *y* and it also accepts parameters such as xlab (x axis label), ylab (y axis label), type (p for point, l for lines, b for both, etc).
+
+Here are some examples.
+
+
+```{r histogram}
+matches_2018 <- read.csv("./WorldCup2018/FIFA 2018 Statistics.csv")
+
+hist(matches_2018$Ball.Possession.., main = "Histogram of Ball Possession")
+hist( matches_2018$Ball.Possession.., breaks=6, main = "Histogram of Ball Possession with 6 breaks")
+```
+
+
+
+We can also add some color by using the library `RColorBrewer`
+```{r histogram2}
+library(RColorBrewer)
+hist(matches_2018$Passes,col=brewer.pal(8,"Greens"), xlab = "Number of passes", main = "Histogram of Number of Passes")
+
+```
+
+```{r barplot}
+
+saves_by_team <- matches_2018 %>% group_by(Team) %>% summarise(Saves=sum(Saves))
+
+barplot(saves_by_team$Saves,col=brewer.pal(8,"Blues"),main= "Barplot of Number of Saves",
+ylab = "Saves",names.arg =saves_by_team$Team , horiz = FALSE, las=2)
+
+
+
+
+
+```
+
+Another useful function is `boxplot`, the following plot is a boxplot of the number of goals scored by each team in the different matches.
+
+```{r boxplot}
+
+
+boxplot(matches_2018$Goal.Scored~matches_2018$Team,col=heat.colors(32), las=2,  main="Boxplot Goals Scored")
+
+```
+
+## ggplot
+
+One of the most useful libraries for visualization is `ggplot` this library let's you customize your graphs in an easier way than the default graphics functions.
+
+Here I will also introduce you to two functions that are always helpful:
+
+- **The pipe ` %>% `:** this function is inside of `dplyr` package and it was initially called *the chain*. This function lets you pass an intermediate result onto the next function, instead of having multiple lines with different functions for the same data frame. 
+
+- **group_by:** is also a function in the `dplyr` package. It takes an existing table and converts it into a grouped table where operations are performed. This function doesn't change what the data looks like but it changes the way it interacts with other functions, in this case `summarise`.
+
+
+
+```{r ggplot1}
+
+goals_by_team <- matches_2018 %>% group_by(Team) %>% summarise(Fouls=sum(Fouls.Committed))
+
+p <- ggplot(goals_by_team, aes(x=Team, y=Fouls)) + geom_bar(stat="identity",aes(fill = Team))+ coord_flip()+ theme(legend.position="none")
+
+p
+
+```
+
+
+Good Luck!
+
+![](https://media.giphy.com/media/145hX7QVWqyili/giphy.gif)
+
+## Useful resources
+
+### Data sets
+
+- **2018 DataSet**
+
+https://www.kaggle.com/mathan/fifa-2018-match-statistics
+
+- **Historical WC Dataset** 
+
+https://www.kaggle.com/abecklas/fifa-world-cup
+
+### R Cheat sheets
+- **Markdown Cheat sheet**
+
+https://github.com/adam-p/markdown-here/wiki/Markdown-Here-Cheatsheet
+
+
+- **ggplot Cheat sheet**
+
+https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf
+
+- **Other cheat sheets**
+
+https://www.rstudio.com/resources/cheatsheets/
+
+### Visualization
+
+- **Top 50 ggplot visualizations**
+
+http://r-statistics.co/Top50-Ggplot2-Visualizations-MasterList-R-Code.html
+
+- **Exploratory Analysis (Python)**
+
+https://www.kaggle.com/pavanraj159/fifa-world-cup-1930-to-2014-data-analysis/notebook
+
+### Others
+
+- **Dimensionality reduction**
+
+https://idyll.pub/post/dimensionality-reduction-293e465c2a3443e8941b016d/#reference-7?utm_campaign=News&utm_medium=Community&utm_source=DataCamp.com
